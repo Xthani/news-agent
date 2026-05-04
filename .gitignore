@@ -1,0 +1,101 @@
+# --- Секреты и локальные креды (никогда не коммитить) ---
+.env
+.env.*
+!.env.example
+!.env.sample
+secrets/
+*.pem
+*.key
+*.p12
+
+# --- Виртуальное окружение Python ---
+.venv/
+venv/
+ENV/
+env/
+
+# --- Байткод и кэш интерпретатора ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# --- Сборка и установка пакетов ---
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+pip-wheel-metadata/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+pip-log.txt
+pip-delete-this-directory.txt
+
+# --- Тесты, покрытие, линтеры ---
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+coverage.xml
+*.cover
+.hypothesis/
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- Runtime агента: индекс статей, черновики для Telegram, сырое/обработанное ---
+# В репозитории только пустая заготовка каталога — см. data/.gitkeep
+/data/*
+!/data/.gitkeep
+
+browser_sessions/
+
+# --- Playwright ---
+playwright-report/
+test-results/
+
+# --- Логи и временные файлы ---
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+
+# --- macOS ---
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# --- Windows ---
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# --- IDE (локальные настройки не должны утекать в репо) ---
+.idea/
+*.iml
+.vscode/
+*.code-workspace
+
+# --- Прочее локальное ---
+.cursor/

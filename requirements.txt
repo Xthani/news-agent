@@ -1,0 +1,5 @@
+playwright
+PyYAML
+python-dotenv
+requests
+openai

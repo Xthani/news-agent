@@ -1,0 +1,17 @@
+sites:
+  - id: "marca_real_madrid"
+    name: "Marca Real Madrid"
+    enabled: true
+    url: "https://www.marca.com/futbol/real-madrid.html?intcmp=MENUMIGA&s_kw=real-madrid"
+    listing_selectors:
+      articles: "article, .ue-c-cover-content, .ue-c-cover-content__main"
+      title: "h2, h3, a"
+      link: "a"
+      image: "img"
+    article_selectors:
+      title: "h1"
+      subtitle: "h2, .ue-c-article__subtitle"
+      author: "[rel='author'], .ue-c-article__byline-name"
+      date: "time"
+      image: "figure img, article img"
+      paragraphs: "article p"
