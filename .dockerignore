@@ -1,0 +1,42 @@
+# Git / метаданные
+.git
+.gitignore
+.github
+
+# Секреты и локальная конфигурация
+.env
+.env.*
+!.env.example
+
+# Локальный Python
+.venv
+venv
+ENV
+env
+
+# Кэши и артефакты Python
+__pycache__
+*.py[cod]
+*$py.class
+.pytest_cache
+.mypy_cache
+.ruff_cache
+*.egg-info
+.eggs
+dist
+build
+
+# Runtime — создаются при работе контейнера (или монтируется диск на Render)
+data
+browser_sessions
+
+# Playwright / отчёты
+playwright-report
+test-results
+
+# ОС и IDE
+.DS_Store
+.idea
+.vscode
+.cursor
+*.log

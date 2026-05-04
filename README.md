@@ -27,6 +27,19 @@ pip install -r requirements.txt
 playwright install chromium
 ```
 
+## Docker (деплой / проверка образа)
+
+Образ собирается из официального `mcr.microsoft.com/playwright/python` с тем же патчем версии, что и `playwright` в `requirements.txt`.
+
+Локально:
+
+```bash
+docker build -t news-agent .
+docker run --rm --env-file .env news-agent
+```
+
+На Render: тип сервиса **Background Worker**, сборка **Docker**, переменные окружения — как в `.env.example` (секреты только в панели Render, не в репозитории).
+
 ## Запуск (Stage 1)
 
 Из папки `real_madrid_news_agent/`:
