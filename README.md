@@ -1,150 +1,116 @@
-# Real Madrid News Agent (Marca)
+# News Agent
 
-Этот проект — **новый отдельный агент** для автоматизации новостей про **Real Madrid**.
-Он создан рядом с вашим старым проектом (например, `programaze`), но **не изменяет его** и не зависит от него.
+Container-ready Python automation agent that collects football news, extracts article content with Playwright, prepares LLM-assisted summaries, and routes drafts through a human-in-the-loop Telegram approval flow.
 
-## Что делает (Stage 1)
+The current source adapter targets Real Madrid coverage from Marca. Sources, selectors, writing rules, providers, and publication settings are configuration-driven so the pipeline can be extended without coupling the core workflow to one site.
 
-- Открывает страницу листинга Marca Real Madrid: `https://www.marca.com/futbol/real-madrid.html`
-- Находит свежие карточки новостей, извлекает ссылки и метаданные
-- Пропускает уже известные URL (локальный индекс `data/articles.json`)
-- Открывает каждую новую статью и вытягивает полный текст (параграфы)
-- Генерирует 2 русских вывода:
-  - **Private**: подробный перевод/адаптация для личного чтения
-  - **Public draft**: короткий оригинальный Telegram-итог (НЕ полный перевод) с указанием источника и URL
-- Сохраняет “сырьё” и “обработку” локально в JSON
-- Отправляет превью в личный Telegram **если** добавлены креды, иначе печатает в консоль
-- **Не публикует** в публичный канал автоматически
+## Pipeline
 
-Если LLM-ключей нет — работает **dry-run**: всё парсится, файлы сохраняются, вместо LLM — заглушки.
+```text
+news listing
+  -> new URL detection
+  -> browser-based article extraction
+  -> local raw archive
+  -> LLM processing or dry-run fallback
+  -> private Telegram preview
+  -> edit and approve
+  -> channel publication
+```
 
-## Установка
+Automatic public posting is disabled in the collection stage. A draft reaches a channel only through the separate Telegram approval workflow.
+
+## Capabilities
+
+- Playwright-based listing and article extraction;
+- duplicate detection through a local article index;
+- configurable source selectors and writing rules;
+- raw and processed JSON artifacts for traceability;
+- multiple LLM provider adapters with environment-based selection;
+- dry-run operation when no provider credentials are configured;
+- private Telegram previews and inline moderation controls;
+- persistent browser sessions for sites that require state;
+- Docker image suitable for a background worker;
+- bounded processing per cycle to control API usage.
+
+## Project structure
+
+```text
+main.py                 one collection and processing cycle
+loop_main.py            recurring worker loop
+bot.py                  Telegram moderation listener
+modules/                browser, extraction, AI, storage, and publishing
+config/sites.yaml       sources and CSS selectors
+config/style_rules.yaml processing and writing rules
+data/                   generated local state, ignored by Git
+```
+
+## Local setup
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 playwright install chromium
+cp .env.example .env
 ```
 
-## Docker (деплой / проверка образа)
+Run one pipeline cycle:
 
-Образ собирается из официального `mcr.microsoft.com/playwright/python` с тем же патчем версии, что и `playwright` в `requirements.txt`.
+```bash
+python main.py
+```
 
-Локально:
+Run it continuously:
+
+```bash
+python loop_main.py
+```
+
+Start the Telegram moderation listener in a separate process:
+
+```bash
+python bot.py
+```
+
+## Configuration
+
+The complete list is documented in [`.env.example`](./.env.example). The most important settings are:
+
+```env
+# Choose and configure at least one supported LLM provider.
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4o-mini
+
+# Required for private previews and approval-based publishing.
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_PRIVATE_CHAT_ID=
+TELEGRAM_CHANNEL_CHAT_ID=
+
+HEADLESS=true
+MAX_NEW_ARTICLES_PER_RUN=3
+```
+
+Secrets belong in the runtime environment or deployment dashboard and must never be committed.
+
+### Dry-run mode
+
+Without LLM credentials, the agent still collects and stores articles, prints a preview, and creates placeholder processed fields. This makes the extraction pipeline testable without consuming provider quota.
+
+### Source maintenance
+
+Website markup changes over time. Update listing and article selectors in [`config/sites.yaml`](./config/sites.yaml) when a source changes; the extraction code uses fallback selectors so one missing field does not have to stop the full cycle.
+
+## Docker
 
 ```bash
 docker build -t news-agent .
 docker run --rm --env-file .env news-agent
 ```
 
-На Render: тип сервиса **Background Worker**, сборка **Docker**, переменные окружения — как в `.env.example` (секреты только в панели Render, не в репозитории).
+The default container command starts the Telegram bot. For a recurring collection worker, override the command with `python -u loop_main.py` or configure the corresponding process in the hosting platform.
 
-## Запуск (Stage 1)
+## Data and privacy
 
-Из папки `real_madrid_news_agent/`:
+Generated articles, pending drafts, bot state, browser profiles, environment files, and credentials are excluded through `.gitignore`. The repository keeps only an empty `data/.gitkeep` placeholder.
 
-```bash
-python main.py
-```
-
-По умолчанию `HEADLESS=true`. Можно поменять через `.env`.
-Чтобы не сжигать лимиты LLM, можно ограничить количество новых статей на запуск:
-
-- `MAX_NEW_ARTICLES_PER_RUN=2`
-
-## Stage 2: модерация и публикация через кнопки в Telegram
-
-1) Укажи переменные:
-- `TELEGRAM_BOT_TOKEN`
-- `TELEGRAM_PRIVATE_CHAT_ID` (твой личный chat id)
-- `TELEGRAM_CHANNEL_CHAT_ID` (канал, где бот админ)
-
-2) Запусти “слушатель” кнопок (отдельный процесс):
-
-```bash
-python bot.py
-```
-
-3) В другом окне терминала запускай обычный пайплайн:
-
-```bash
-python main.py
-```
-
-В личку придёт полный перевод + кнопки:
-- **Сделать пост для канала** → бот покажет короткий черновик
-- **Редактировать** → отправь правки одним сообщением
-- **Опубликовать** → бот запостит в канал
-Состояние хранится локально в `data/pending/`.
-
-## Конфиги
-
-- `config/sites.yaml` — источники и CSS-селекторы (можно подкрутить, если Marca изменит верстку)
-- `config/style_rules.yaml` — промпты/правила для LLM-выводов
-
-## Какие файлы генерируются
-
-- `data/articles.json` — индекс (URL → статус и метаданные)
-- `data/raw/<hash>.json` — распарсенная статья (заголовок/автор/дата/текст)
-- `data/processed/<hash>.json` — результат AI обработки (private + telegram draft)
-- `browser_sessions/` — persistent profile Playwright (куки/локалсторадж)
-
-## Dry-run режим
-
-Если нет `GROQ_API_KEY`, `OPENAI_API_KEY` и `GEMINI_API_KEY`, агент:
-- всё равно парсит листинг и статьи
-- сохраняет JSON в `data/raw` и `data/processed`
-- печатает превью в консоль
-- создаёт заглушки `private_translation` и `telegram_post`
-
-## Stage 2: какие креды добавить
-
-### LLM (один из вариантов)
-
-- Groq:
-  - `GROQ_API_KEY`
-  - `GROQ_MODEL` (например, `llama-3.3-70b-versatile`)
-- OpenAI:
-  - `OPENAI_API_KEY`
-  - `OPENAI_MODEL` (например, `gpt-4o-mini`)
-- DeepSeek:
-  - `DEEPSEEK_API_KEY`
-  - `DEEPSEEK_MODEL` (например, `deepseek-chat`)
-- Hugging Face:
-  - `HF_TOKEN`
-  - `HF_MODEL` (например, `HuggingFaceH4/zephyr-7b-beta`)
-- Gemini:
-  - `GEMINI_API_KEY`
-  - `GEMINI_MODEL` (например, `gemini-flash-latest`)
-- Together:
-  - `TOGETHER_API_KEY`
-  - `TOGETHER_MODEL` (например, `meta-llama/Llama-3.3-70B-Instruct-Turbo`)
-- OpenRouter:
-  - `OPENROUTER_API_KEY`
-  - `OPENROUTER_MODEL` (например, `openai/gpt-4o-mini`)
-- SambaNova:
-  - `SAMBANOVA_API_KEY`
-  - `SAMBANOVA_MODEL` (например, `Meta-Llama-3.1-70B-Instruct`)
-- Cerebras:
-  - `CEREBRAS_API_KEY`
-  - `CEREBRAS_MODEL` (например, `gpt-oss-120b`)
-- Cloudflare Workers AI:
-  - `CLOUDFLARE_ACCOUNT_ID`
-  - `CLOUDFLARE_API_TOKEN`
-  - `CLOUDFLARE_MODEL` (например, `@cf/meta/llama-3.1-8b-instruct`)
-
-### Telegram (для личного превью)
-
-- `TELEGRAM_BOT_TOKEN`
-- `TELEGRAM_PRIVATE_CHAT_ID`
-
-Публикация в канал подготовлена функцией `publish_to_channel()`, но **не вызывается автоматически** в Stage 1.
-
-## Если Marca перестала парситься
-
-Селекторы в `config/sites.yaml` могут устареть. Правило простое:
-- обновляете `listing_selectors.*` (для карточек)
-- обновляете `article_selectors.*` (для статьи и параграфов)
-
-Код написан защитно: если часть селекторов не сработает, пайплайн не должен падать целиком.
+When publishing summaries, retain source attribution and a link to the original article. Do not republish full copyrighted article text.
